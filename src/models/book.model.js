@@ -24,7 +24,7 @@ const bookSchema = new mongoose.Schema(
     },
 
     coverImage: {
-      type: String, // Cloudinary URL
+      type: String,
       required: true,
     },
 
@@ -45,7 +45,7 @@ const bookSchema = new mongoose.Schema(
 
     shelvedCount: {
       type: Number,
-      default: 0, // used for popularity
+      default: 0,
     },
   },
   { timestamps: true }
