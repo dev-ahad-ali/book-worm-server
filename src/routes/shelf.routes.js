@@ -1,0 +1,10 @@
+import express from 'express';
+import { addToShelf, getMyLibrary } from '../controllers/shelf.controller.js';
+import { protect } from '../middlewares/auth.middleware.js';
+
+const router = express.Router();
+
+router.post('/', protect, addToShelf);
+router.get('/', protect, getMyLibrary);
+
+export default router;
