@@ -25,6 +25,7 @@ import adminRoutes from './routes/admin.routes.js';
 import readingStatsRoutes from './routes/readingStats.routes.js';
 import activityRoutes from './routes/activity.routes.js';
 import tutorialRoutes from './routes/tutorial.routes.js';
+import userRoutes from './routes/user.routes.js';
 
 //routes declaration
 app.use('/api/auth', authRoutes);
@@ -37,5 +38,6 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/reading-stats', readingStatsRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/tutorials', tutorialRoutes);
+app.use('/api/users', userRoutes);
 
 export { app };
