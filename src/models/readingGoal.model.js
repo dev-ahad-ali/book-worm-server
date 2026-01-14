@@ -1,3 +1,5 @@
+import mongoose from 'mongoose';
+
 const readingGoalSchema = new mongoose.Schema(
   {
     user: {

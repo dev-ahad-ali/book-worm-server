@@ -4,7 +4,7 @@ import { protect } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-router.get('/', protect, getRadingStats);
+router.get('/', protect, getReadingStats);
 router.put('/goal', protect, updateReadingGoal);
 
 export default router;
