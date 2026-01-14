@@ -26,29 +26,48 @@ export const deleteBook = async (req, res) => {
 };
 
 export const getAllBooks = async (req, res) => {
-  const { search, genres, rating, sort = 'createdAt', page = 1, limit = 12 } = req.query;
+  try {
+    const { search, genres, rating, sort = '-averageRating', page = 1, limit = 12 } = req.query;
 
-  const query = {};
+    const query = {};
 
-  if (search) {
-    query.$or = [{ title: new RegExp(search, 'i') }, { author: new RegExp(search, 'i') }];
+    if (search) {
+      query.$or = [{ title: new RegExp(search, 'i') }, { author: new RegExp(search, 'i') }];
+    }
+
+    if (genres) {
+      query.genre = { $in: genres.split(',') };
+    }
+
+    if (rating) {
+      query.averageRating = { $gte: Number(rating) };
+    }
+
+    const sortOptions = {
+      rating: '-averageRating',
+      shelved: '-addedToShelvesCount',
+      newest: '-createdAt',
+      oldest: 'createdAt',
+    };
+
+    const [books, totalCount] = await Promise.all([
+      Book.find(query)
+        .sort(sortOptions[sort] || sort)
+        .skip((page - 1) * limit)
+        .limit(Number(limit))
+        .lean(),
+      Book.countDocuments(query),
+    ]);
+
+    res.json({
+      books,
+      totalCount,
+      page: Number(page),
+      totalPages: Math.ceil(totalCount / limit),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-
-  if (genres) {
-    query.genre = { $in: genres.split(',') };
-  }
-
-  if (rating) {
-    query.averageRating = { $gte: Number(rating) };
-  }
-
-  const books = await Book.find(query)
-    .populate('genre')
-    .sort(sort)
-    .skip((page - 1) * limit)
-    .limit(Number(limit));
-
-  res.json(books);
 };
 
 export const getBookDetails = async (req, res) => {
