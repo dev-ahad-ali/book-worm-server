@@ -7,6 +7,7 @@ export const getReadingStats = async (req, res) => {
     const userId = new mongoose.Types.ObjectId(req.user._id);
     const year = new Date().getFullYear();
 
+    // Books read this year
     const booksRead = await Shelf.find({
       user: userId,
       status: 'read',
@@ -16,15 +17,15 @@ export const getReadingStats = async (req, res) => {
       },
     }).populate('book');
 
-    const totalPages = booksRead.reduce((sum, item) => sum + (item.book?.totalPages || 0), 0);
-
-    const monthly = await Shelf.aggregate([
+    // Monthly progress
+    const monthlyProgress = await Shelf.aggregate([
       {
         $match: {
           user: userId,
           status: 'read',
           finishedAt: {
             $gte: new Date(`${year}-01-01`),
+            $lte: new Date(`${year}-12-31`),
           },
         },
       },
@@ -34,9 +35,44 @@ export const getReadingStats = async (req, res) => {
           count: { $sum: 1 },
         },
       },
+      {
+        $project: {
+          month: '$_id',
+          count: 1,
+          _id: 0,
+        },
+      },
     ]);
 
-    const genres = await Shelf.aggregate([
+    // Weekly pages
+    const weeklyPages = await Shelf.aggregate([
+      {
+        $match: {
+          user: userId,
+          status: 'read',
+          finishedAt: {
+            $gte: new Date(`${year}-01-01`),
+            $lte: new Date(`${year}-12-31`),
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { $week: '$finishedAt' },
+          pages: { $sum: '$book.totalPages' },
+        },
+      },
+      {
+        $project: {
+          week: { $toString: '$_id' },
+          pages: 1,
+          _id: 0,
+        },
+      },
+    ]);
+
+    // Genre distribution
+    const genreDistribution = await Shelf.aggregate([
       { $match: { user: userId, status: 'read' } },
       {
         $lookup: {
@@ -48,34 +84,43 @@ export const getReadingStats = async (req, res) => {
       },
       { $unwind: '$book' },
       {
-        $lookup: {
-          from: 'genres',
-          localField: 'book.genre',
-          foreignField: '_id',
-          as: 'genre',
+        $group: {
+          _id: '$book.genre',
+          count: { $sum: 1 },
         },
       },
-      { $unwind: '$genre' },
       {
-        $group: {
-          _id: '$genre.name',
-          count: { $sum: 1 },
+        $project: {
+          name: '$_id',
+          value: '$count',
+          _id: 0,
         },
       },
     ]);
 
-    const goal = await ReadingGoal.findOne({
-      user: userId,
-      year,
-    });
+    // Get or create reading goal
+    let goal = await ReadingGoal.findOne({ user: userId, year });
+    if (!goal) {
+      goal = await ReadingGoal.create({
+        user: userId,
+        year,
+        annualGoal: 12,
+        booksReadThisYear: booksRead.length,
+        totalPagesRead: booksRead.reduce((sum, item) => sum + (item.book?.totalPages || 0), 0),
+        monthlyProgress,
+        weeklyPages,
+        genreDistribution,
+      });
+    } else {
+      goal.booksReadThisYear = booksRead.length;
+      goal.totalPagesRead = booksRead.reduce((sum, item) => sum + (item.book?.totalPages || 0), 0);
+      goal.monthlyProgress = monthlyProgress;
+      goal.weeklyPages = weeklyPages;
+      goal.genreDistribution = genreDistribution;
+      await goal.save();
+    }
 
-    res.json({
-      booksRead: booksRead.length,
-      totalPages,
-      monthly,
-      genres,
-      goal,
-    });
+    res.json(goal);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
